@@ -213,15 +213,19 @@ public class LogFixAgent {
                 .build();
         EmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
 
-        // Chunk → embed → store in one pipeline.
-        // 500 tokens per chunk, 50 token overlap so context is not lost at boundaries.
-        EmbeddingStoreIngestor.builder()
-                .documentSplitter(DocumentSplitters.recursive(500, 50))
-                .embeddingModel(embeddingModel)
-                .embeddingStore(embeddingStore)
-                .build()
-                .ingest(logDocs);
-        System.out.println("Logs chunked and embedded into vector store.");
+        if (logDocs.isEmpty()) {
+            System.out.println("No logs fetched — skipping embedding, agent will run without log context.");
+        } else {
+            // Chunk → embed → store in one pipeline.
+            // 500 tokens per chunk, 50 token overlap so context is not lost at boundaries.
+            EmbeddingStoreIngestor.builder()
+                    .documentSplitter(DocumentSplitters.recursive(500, 50))
+                    .embeddingModel(embeddingModel)
+                    .embeddingStore(embeddingStore)
+                    .build()
+                    .ingest(logDocs);
+            System.out.println("Logs chunked and embedded into vector store.");
+        }
 
         EmbeddingStoreContentRetriever contentRetriever =
                 EmbeddingStoreContentRetriever.builder()

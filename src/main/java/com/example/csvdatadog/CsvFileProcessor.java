@@ -62,10 +62,7 @@ public class CsvFileProcessor {
             }
         }
 
-        if (invalidRows > 0) {
-            throw new CsvProcessingException(
-                "Finished with " + invalidRows + " invalid row(s) and " + validRows + " valid row(s).");
-        }
+        logger.info("Finished processing with {} invalid row(s) and {} valid row(s).", invalidRows, validRows);
 
         return new ProcessingReport(validRows, invalidRows, outputPath.toAbsolutePath());
     }
