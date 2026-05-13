@@ -51,6 +51,7 @@ public class CsvFileProcessor {
                 }
 
                 try {
+                    logger.debug("Parsing line {}: {}", lineNumber, line);
                     ParsedRow row = parseLine(line, lineNumber);
                     csvPrinter.printRecord(row.id(), row.customerName(), row.amount());
                     validRows++;
@@ -71,6 +72,7 @@ public class CsvFileProcessor {
     private ParsedRow parseLine(String line, int lineNumber) {
         String[] columns = line.split("\\|", -1);
         if (columns.length != 3) {
+            logger.debug("Line {} split into columns: {}", lineNumber, (Object) columns);
             throw new InvalidRecordException("Line " + lineNumber + " must have exactly 3 columns separated by '|'");
         }
 
