@@ -1,0 +1,5 @@
+1|Alice|120.50
+2|Bob|invalid-number
+3|Charlie|89.99
+line-with-missing-columns
+4|Dana|-15.00
