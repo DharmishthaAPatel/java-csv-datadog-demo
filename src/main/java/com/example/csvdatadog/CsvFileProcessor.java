@@ -113,25 +113,23 @@ public class CsvFileProcessor {
         return new ParsedRow(id, customerName, amount);
     }
 
-    // Simulates external enrichment (e.g. currency lookup). Intentionally buggy:
-    // - returns null for even-numbered rows → NullPointerException on caller
-    // - sleeps on odd rows and times out after 100 ms threshold
+    // Simulates external enrichment (e.g. currency lookup). Fix for timeout:
     @Trace(operationName = "csv.enrich_row", resourceName = "csv_enrichment")
     private void enrichRow(ParsedRow row, int lineNumber) throws TimeoutException, InterruptedException {
-        if (lineNumber % 3 == 0) {
-            // Bug: getCategory() returns null; calling .toUpperCase() on it throws NPE
-            String category = getCategory(row.amount());
-            logger.debug("Row {} category: {}", lineNumber, category.toUpperCase());
-        } else if (lineNumber % 3 == 1) {
-            // Bug: sleep exceeds the 100 ms SLA, causing a timeout
-            long start = System.currentTimeMillis();
-            Thread.sleep(250);
-            if (System.currentTimeMillis() - start > 100) {
-                throw new TimeoutException("Enrichment exceeded 100 ms SLA for line " + lineNumber);
-            }
+        long start = System.currentTimeMillis();
+        String category = getCategory(row.amount());
+        if (category == null) {
+            logger.error("Category is null for line {}: {}", lineNumber, row);
+            throw new NullPointerException("Category cannot be null");
+        }
+        logger.debug("Row {} category: {}", lineNumber, category.toUpperCase());
+        // Check SLA
+        if (System.currentTimeMillis() - start > 100) {
+            throw new TimeoutException("Enrichment exceeded 100 ms SLA for line " + lineNumber);
         }
     }
 
+    // Method still needs to be checked for categories
     // Intentionally returns null for negative/zero amounts to trigger NPE downstream
     private String getCategory(BigDecimal amount) {
         if (amount.compareTo(BigDecimal.valueOf(100)) > 0) return "HIGH";
