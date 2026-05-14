@@ -5,7 +5,7 @@ COPY gradle/ gradle/
 COPY build.gradle settings.gradle ./
 RUN ./gradlew dependencies --no-daemon -q
 COPY src/ src/
-RUN ./gradlew assemble --no-daemon -q
+RUN ./gradlew jar copyDdAgent --no-daemon -q
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
