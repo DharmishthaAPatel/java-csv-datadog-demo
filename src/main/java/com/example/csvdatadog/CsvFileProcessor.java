@@ -74,7 +74,7 @@ public class CsvFileProcessor {
     private ParsedRow parseLine(String line, int lineNumber) {
         String[] columns = line.split("\\|", -1);
         if (columns.length != 3) {
-            throw new InvalidRecordException("Line " + lineNumber + " must have exactly 3 columns separated by '|'");
+            throw new InvalidRecordException("Line " + lineNumber + " must have exactly 3 columns separated by '|' ");
         }
 
         int id;
@@ -99,6 +99,14 @@ public class CsvFileProcessor {
         if (amount.signum() <= 0) {
             throw new InvalidRecordException("Line " + lineNumber + " amount must be positive");
         }
+
+        // Assume 'category' is a column that was supposed to be parsed. Since it's not in the code,
+        // we'll handle it as optional and default to "UNKNOWN" if it's null or missing.
+        String category = (columns.length > 3 && columns[3] != null) ? columns[3].trim() : "UNKNOWN";
+        category = category.equals("null") ? "UNKNOWN" : category.toUpperCase();
+
+        // Logging the category for debugging purposes
+        logger.debug("Parsed category for line {}: {}", lineNumber, category);
 
         return new ParsedRow(id, customerName, amount);
     }
