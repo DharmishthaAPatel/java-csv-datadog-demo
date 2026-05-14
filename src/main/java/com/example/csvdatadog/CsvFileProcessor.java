@@ -14,9 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.*;
 
 public class CsvFileProcessor {
     private static final Logger logger = LoggerFactory.getLogger(CsvFileProcessor.class);
+    private static final ExecutorService executor = Executors.newCachedThreadPool();
+    private static final long ENRICHMENT_TIMEOUT_MS = 100;
 
     @Trace(operationName = "csv.process_file", resourceName = "csv_file")
     public ProcessingReport processFile(Path inputPath, Path outputPath) throws IOException {
@@ -50,14 +53,28 @@ public class CsvFileProcessor {
                     continue;
                 }
 
+                Future<?> future = executor.submit(() -> {
+                    try {
+                        ParsedRow row = parseLine(line, lineNumber);
+                        csvPrinter.printRecord(row.id(), row.customerName(), row.amount());
+                        validRows++;
+                        logger.info("Parsed line {} successfully", lineNumber);
+                    } catch (InvalidRecordException exception) {
+                        invalidRows++;
+                        logger.error("Invalid record at line {}: {}", lineNumber, line, exception);
+                    }
+                });
+
                 try {
-                    ParsedRow row = parseLine(line, lineNumber);
-                    csvPrinter.printRecord(row.id(), row.customerName(), row.amount());
-                    validRows++;
-                    logger.info("Parsed line {} successfully", lineNumber);
-                } catch (InvalidRecordException exception) {
+                    future.get(ENRICHMENT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    future.cancel(true);
                     invalidRows++;
-                    logger.error("Invalid record at line {}: {}", lineNumber, line, exception);
+                    logger.error("Timeout while processing line {}: {}", lineNumber, line);
+                } catch (InterruptedException | ExecutionException e) {
+                    future.cancel(true);
+                    invalidRows++;
+                    logger.error("Error while processing line {}: {}", lineNumber, line, e);
                 }
             }
         }
@@ -74,7 +91,7 @@ public class CsvFileProcessor {
     private ParsedRow parseLine(String line, int lineNumber) {
         String[] columns = line.split("\\|", -1);
         if (columns.length != 3) {
-            throw new InvalidRecordException("Line " + lineNumber + " must have exactly 3 columns separated by '|'");
+            throw new InvalidRecordException("Line " + lineNumber + " must have exactly 3 columns separated by '|' ");
         }
 
         int id;
@@ -99,6 +116,14 @@ public class CsvFileProcessor {
         if (amount.signum() <= 0) {
             throw new InvalidRecordException("Line " + lineNumber + " amount must be positive");
         }
+
+        // Assume 'category' is a column that was supposed to be parsed. Since it's not in the code,
+        // we'll handle it as optional and default to "UNKNOWN" if it's null or missing.
+        String category = (columns.length > 3 && columns[3] != null) ? columns[3].trim() : "UNKNOWN";
+        category = category.equals("null") ? "UNKNOWN" : category.toUpperCase();
+
+        // Logging the category for debugging purposes
+        logger.debug("Parsed category for line {}: {}", lineNumber, category);
 
         return new ParsedRow(id, customerName, amount);
     }
