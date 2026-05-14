@@ -70,6 +70,23 @@ public class CsvFileProcessor {
         return new ProcessingReport(validRows, invalidRows, outputPath.toAbsolutePath());
     }
 
+    @Trace(operationName = "csv.enrich_row", resourceName = "csv_row")
+    private ParsedRow enrichRow(ParsedRow row, int lineNumber) {
+        String category = determineCategory(row.amount());
+        
+        // Null check to prevent NullPointerException
+        if (category != null) {
+            category = category.toUpperCase();
+        } else {
+            logger.warn("Category is null for line {}", lineNumber);
+            // Handle the null case as appropriate (e.g., assign a default category)
+            category = "UNKNOWN";
+        }
+
+        // Enrichment logic...
+        return new ParsedRow(row.id(), row.customerName(), row.amount());
+    }
+
     @Trace(operationName = "csv.parse_line", resourceName = "csv_line")
     private ParsedRow parseLine(String line, int lineNumber) {
         String[] columns = line.split("\\|", -1);
@@ -104,5 +121,10 @@ public class CsvFileProcessor {
     }
 
     private record ParsedRow(int id, String customerName, BigDecimal amount) {
+    }
+
+    private String determineCategory(BigDecimal amount) {
+        // Determine category logic...
+        return null; // Placeholder for actual implementation
     }
 }
